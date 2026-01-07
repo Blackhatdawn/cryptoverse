@@ -15,14 +15,6 @@ const TradeSuccess = () => {
   const [attempts, setAttempts] = useState(0);
   const maxAttempts = 8;
 
-  useEffect(() => {
-    if (!sessionId) {
-      navigate('/markets');
-      return;
-    }
-    checkPaymentStatus();
-  }, [sessionId]);
-
   const checkPaymentStatus = async () => {
     try {
       const response = await api.get(`/trade/checkout-status/${sessionId}`);
@@ -34,7 +26,6 @@ const TradeSuccess = () => {
         setStatus('error');
         toast.error('Payment session expired');
       } else {
-        // Still pending, poll again
         if (attempts < maxAttempts) {
           setTimeout(() => {
             setAttempts(prev => prev + 1);
@@ -51,6 +42,15 @@ const TradeSuccess = () => {
       toast.error('Failed to verify payment status');
     }
   };
+
+  useEffect(() => {
+    if (!sessionId) {
+      navigate('/markets');
+      return;
+    }
+    checkPaymentStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   return (
     <DashboardLayout>
