@@ -32,16 +32,6 @@ const Trade = () => {
     };
     loadCoinDetails();
   }, [coinId]);
-    try {
-      const response = await api.get(`/crypto/coin/${coinId}`);
-      setCoin(response.data);
-    } catch (error) {
-      toast.error('Failed to load coin details');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleTrade = async () => {
     if (!amount || parseFloat(amount) <= 0) {
