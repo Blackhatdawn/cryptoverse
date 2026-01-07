@@ -34,6 +34,10 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 # Security
 security = HTTPBearer()
 
+# Simple cache for CoinGecko API
+crypto_cache = {}
+CACHE_TTL = 60  # 60 seconds
+
 # Create the main app
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -131,24 +135,91 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def fetch_crypto_prices(coin_ids: List[str]) -> Dict:
-    """Fetch current prices from CoinGecko API"""
+    """Fetch current prices from CoinGecko API with caching"""
+    cache_key = ",".join(sorted(coin_ids))
+    
+    if cache_key in crypto_cache:
+        cache_entry = crypto_cache[cache_key]
+        if (datetime.now(timezone.utc) - cache_entry['timestamp']).seconds < CACHE_TTL:
+            return cache_entry['data']
+    
     ids_str = ",".join(coin_ids)
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids_str}&vs_currencies=usd&include_24hr_change=true"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    crypto_cache[cache_key] = {
+                        'data': data,
+                        'timestamp': datetime.now(timezone.utc)
+                    }
+                    return data
+    except Exception as e:
+        logging.error(f"CoinGecko API error: {e}")
+    
     return {}
+
+async def fetch_markets_cached():
+    """Fetch markets data with caching"""
+    cache_key = "markets"
+    
+    if cache_key in crypto_cache:
+        cache_entry = crypto_cache[cache_key]
+        if (datetime.now(timezone.utc) - cache_entry['timestamp']).seconds < CACHE_TTL:
+            return cache_entry['data']
+    
+    url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    crypto_cache[cache_key] = {
+                        'data': data,
+                        'timestamp': datetime.now(timezone.utc)
+                    }
+                    return data
+    except Exception as e:
+        logging.error(f"CoinGecko markets API error: {e}")
+    
+    return []
+
+async def fetch_coin_details_cached(coin_id: str):
+    """Fetch coin details with caching"""
+    cache_key = f"coin_{coin_id}"
+    
+    if cache_key in crypto_cache:
+        cache_entry = crypto_cache[cache_key]
+        if (datetime.now(timezone.utc) - cache_entry['timestamp']).seconds < CACHE_TTL:
+            return cache_entry['data']
+    
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false&tickers=false&community_data=false&developer_data=false"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    crypto_cache[cache_key] = {
+                        'data': data,
+                        'timestamp': datetime.now(timezone.utc)
+                    }
+                    return data
+    except Exception as e:
+        logging.error(f"CoinGecko coin details API error: {e}")
+    
+    return None
 
 # Auth Routes
 @api_router.post("/auth/signup", response_model=AuthResponse)
 async def signup(user_data: UserCreate):
-    # Check if user exists
     existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
     user_id = str(uuid.uuid4())
     hashed_pw = hash_password(user_data.password)
     user_doc = {
@@ -160,7 +231,6 @@ async def signup(user_data: UserCreate):
     }
     await db.users.insert_one(user_doc)
     
-    # Create portfolio
     portfolio_doc = {
         "id": str(uuid.uuid4()),
         "user_id": user_id,
@@ -171,7 +241,6 @@ async def signup(user_data: UserCreate):
     }
     await db.portfolios.insert_one(portfolio_doc)
     
-    # Generate token
     token = create_jwt_token(user_id, user_data.email)
     
     user_response = User(
@@ -212,23 +281,16 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 # Crypto Market Routes
 @api_router.get("/crypto/markets")
 async def get_markets():
-    """Get top cryptocurrencies"""
-    url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=false&price_change_percentage=24h"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                return data
-    return []
+    """Get top cryptocurrencies with caching"""
+    data = await fetch_markets_cached()
+    return data
 
 @api_router.get("/crypto/coin/{coin_id}")
 async def get_coin_details(coin_id: str):
-    """Get detailed coin information"""
-    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}?localization=false&tickers=false&community_data=false&developer_data=false"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response.status == 200:
-                return await response.json()
+    """Get detailed coin information with caching"""
+    data = await fetch_coin_details_cached(coin_id)
+    if data:
+        return data
     raise HTTPException(status_code=404, detail="Coin not found")
 
 # Portfolio Routes
@@ -236,7 +298,6 @@ async def get_coin_details(coin_id: str):
 async def get_portfolio(current_user: dict = Depends(get_current_user)):
     portfolio = await db.portfolios.find_one({"user_id": current_user["id"]}, {"_id": 0})
     if not portfolio:
-        # Create default portfolio
         portfolio = {
             "id": str(uuid.uuid4()),
             "user_id": current_user["id"],
@@ -247,7 +308,6 @@ async def get_portfolio(current_user: dict = Depends(get_current_user)):
         }
         await db.portfolios.insert_one(portfolio)
     
-    # Calculate total value with current prices
     if portfolio["holdings"]:
         coin_ids = list(portfolio["holdings"].keys())
         prices = await fetch_crypto_prices(coin_ids)
@@ -293,7 +353,6 @@ async def create_trade_checkout(trade: BuySellRequest, current_user: dict = Depe
     if trade.transaction_type == "sell":
         raise HTTPException(status_code=400, detail="Use /trade/sell for selling crypto")
     
-    # Get current price
     prices = await fetch_crypto_prices([trade.coin_id])
     if trade.coin_id not in prices:
         raise HTTPException(status_code=400, detail="Could not fetch crypto price")
@@ -301,7 +360,6 @@ async def create_trade_checkout(trade: BuySellRequest, current_user: dict = Depe
     price_usd = prices[trade.coin_id]["usd"]
     total_usd = trade.amount * price_usd
     
-    # Create Stripe checkout
     webhook_url = f"{trade.host_url}/api/webhook/stripe"
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
     
@@ -327,7 +385,6 @@ async def create_trade_checkout(trade: BuySellRequest, current_user: dict = Depe
     
     session = await stripe_checkout.create_checkout_session(checkout_request)
     
-    # Create payment transaction record
     payment_doc = {
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
@@ -347,20 +404,17 @@ async def create_trade_checkout(trade: BuySellRequest, current_user: dict = Depe
 @api_router.get("/trade/checkout-status/{session_id}")
 async def get_checkout_status(session_id: str, current_user: dict = Depends(get_current_user)):
     """Check payment status and process transaction"""
-    # Check if already processed
     payment = await db.payment_transactions.find_one({"session_id": session_id, "user_id": current_user["id"]}, {"_id": 0})
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
     if payment["payment_status"] == "paid" and payment["status"] == "completed":
-        return {"status": "completed", "message": "Transaction already processed"}
+        return {"status": "completed", "message": "Transaction already processed", "payment_status": "paid"}
     
-    # Get status from Stripe
     webhook_url = "https://placeholder.com/webhook"
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
     checkout_status = await stripe_checkout.get_checkout_status(session_id)
     
-    # Update payment transaction
     await db.payment_transactions.update_one(
         {"session_id": session_id},
         {"$set": {
@@ -370,11 +424,9 @@ async def get_checkout_status(session_id: str, current_user: dict = Depends(get_
         }}
     )
     
-    # Process if paid and not yet completed
     if checkout_status.payment_status == "paid" and payment["status"] != "completed":
         metadata = payment["metadata"]
         
-        # Update portfolio
         portfolio = await db.portfolios.find_one({"user_id": current_user["id"]})
         holdings = portfolio.get("holdings", {})
         coin_id = metadata["coin_id"]
@@ -393,7 +445,6 @@ async def get_checkout_status(session_id: str, current_user: dict = Depends(get_
             }}
         )
         
-        # Create transaction record
         transaction_doc = {
             "id": str(uuid.uuid4()),
             "user_id": current_user["id"],
@@ -408,7 +459,6 @@ async def get_checkout_status(session_id: str, current_user: dict = Depends(get_
         }
         await db.transactions.insert_one(transaction_doc)
         
-        # Mark as completed
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {"status": "completed"}}
@@ -423,14 +473,12 @@ async def get_checkout_status(session_id: str, current_user: dict = Depends(get_
 @api_router.post("/trade/sell")
 async def sell_crypto(trade: BuySellRequest, current_user: dict = Depends(get_current_user)):
     """Sell crypto for USD"""
-    # Get portfolio
     portfolio = await db.portfolios.find_one({"user_id": current_user["id"]})
     holdings = portfolio.get("holdings", {})
     
     if trade.coin_id not in holdings or holdings[trade.coin_id] < trade.amount:
         raise HTTPException(status_code=400, detail="Insufficient balance")
     
-    # Get current price
     prices = await fetch_crypto_prices([trade.coin_id])
     if trade.coin_id not in prices:
         raise HTTPException(status_code=400, detail="Could not fetch crypto price")
@@ -438,7 +486,6 @@ async def sell_crypto(trade: BuySellRequest, current_user: dict = Depends(get_cu
     price_usd = prices[trade.coin_id]["usd"]
     total_usd = trade.amount * price_usd
     
-    # Update holdings
     holdings[trade.coin_id] -= trade.amount
     if holdings[trade.coin_id] <= 0:
         del holdings[trade.coin_id]
@@ -454,7 +501,6 @@ async def sell_crypto(trade: BuySellRequest, current_user: dict = Depends(get_cu
         }}
     )
     
-    # Create transaction
     transaction_doc = {
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
@@ -486,7 +532,6 @@ async def stripe_webhook(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# Include router
 app.include_router(api_router)
 
 app.add_middleware(
