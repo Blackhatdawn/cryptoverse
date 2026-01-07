@@ -18,21 +18,6 @@ const Trade = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    const loadCoinDetails = async () => {
-      try {
-        const response = await api.get(`/crypto/coin/${coinId}`);
-        setCoin(response.data);
-      } catch (error) {
-        toast.error('Failed to load coin details');
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadCoinDetails();
-  }, [coinId]);
-
   const fetchCoinDetails = async () => {
     try {
       const response = await api.get(`/crypto/coin/${coinId}`);
