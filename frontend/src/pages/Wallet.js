@@ -8,27 +8,64 @@ import { Link } from 'react-router-dom';
 
 const Wallet = () => {
   const [portfolio, setPortfolio] = useState(null);
+  const [markets, setMarkets] = useState([]);
+  const [detailedHoldings, setDetailedHoldings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (showToast = false) => {
     try {
-      const [portfolioRes, transactionsRes] = await Promise.all([
+      setRefreshing(true);
+      const [portfolioRes, marketsRes, transactionsRes] = await Promise.all([
         api.get('/portfolio'),
+        api.get('/crypto/markets'),
         api.get('/transactions')
       ]);
+      
       setPortfolio(portfolioRes.data);
+      setMarkets(marketsRes.data);
       setTransactions(transactionsRes.data);
+      
+      // Build detailed holdings
+      const holdingsData = [];
+      if (portfolioRes.data.holdings && Object.keys(portfolioRes.data.holdings).length > 0) {
+        for (const [coinId, amount] of Object.entries(portfolioRes.data.holdings)) {
+          const coinData = marketsRes.data.find(m => m.id === coinId);
+          if (coinData) {
+            holdingsData.push({
+              id: coinId,
+              name: coinData.name,
+              symbol: coinData.symbol,
+              amount: amount,
+              currentPrice: coinData.current_price,
+              change24h: coinData.price_change_percentage_24h || 0,
+              total: amount * coinData.current_price,
+              image: coinData.image
+            });
+          }
+        }
+      }
+      setDetailedHoldings(holdingsData);
+      
+      if (showToast) {
+        toast.success('Wallet refreshed');
+      }
     } catch (error) {
       toast.error('Failed to load wallet data');
       console.error(error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchData(true);
   };
 
   const formatDate = (dateString) => {
