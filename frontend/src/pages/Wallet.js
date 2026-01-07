@@ -87,45 +87,148 @@ const Wallet = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="font-heading text-3xl sm:text-4xl font-bold text-foreground mb-2">
-            My Wallet
-          </h1>
-          <p className="text-muted-foreground">Manage your crypto holdings and view transaction history</p>
-        </div>
-
-        {/* Holdings */}
+        {/* Header with Total Worth */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
+              <h1 className="font-mono text-5xl sm:text-6xl font-bold text-foreground tracking-tight">
+                ${portfolio?.total_value?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h1>
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              data-testid="refresh-wallet-button"
+              className="p-3 rounded-xl bg-card hover:bg-white/5 transition-colors border border-border/50"
+            >
+              <RefreshCw className={`text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} size={20} />
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">USD Balance</p>
+              <p className="font-mono text-lg font-semibold text-foreground">
+                ${portfolio?.usd_balance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Crypto Assets</p>
+              <p className="font-mono text-lg font-semibold text-foreground">
+                {detailedHoldings.length}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Detailed Holdings Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           className="rounded-2xl bg-card border border-border/50 p-6"
           data-testid="holdings-section"
         >
-          <h2 className="font-heading text-xl font-bold text-foreground mb-6">Holdings</h2>
+          <h2 className="font-heading text-xl font-bold text-foreground mb-6">
+            Holdings (${detailedHoldings.reduce((sum, h) => sum + h.total, 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+          </h2>
           
-          {Object.keys(portfolio?.holdings || {}).length === 0 ? (
+          {detailedHoldings.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No crypto holdings yet. Start trading to build your portfolio!</p>
+              <p className="text-muted-foreground mb-4">No crypto holdings yet</p>
+              <Link to="/markets" className="text-primary hover:underline">
+                Start Trading
+              </Link>
             </div>
           ) : (
-            <div className="space-y-4">
-              {Object.entries(portfolio.holdings).map(([coinId, amount]) => (
-                <div
-                  key={coinId}
-                  data-testid={`holding-${coinId}`}
-                  className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                >
-                  <div>
-                    <p className="font-heading font-bold text-foreground">{coinId.toUpperCase()}</p>
-                    <p className="text-sm text-muted-foreground">{coinId}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-lg font-semibold text-foreground">{amount.toFixed(8)}</p>
-                    <p className="text-xs text-muted-foreground">coins</p>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b border-border/30">
+                    <th className="pb-4 font-medium">Asset</th>
+                    <th className="pb-4 font-medium text-right">Amount</th>
+                    <th className="pb-4 font-medium text-right">24h Change</th>
+                    <th className="pb-4 font-medium text-right">Price</th>
+                    <th className="pb-4 font-medium text-right">Total Value</th>
+                    <th className="pb-4 font-medium text-right">P/L (24h)</th>
+                    <th className="pb-4 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailedHoldings.map((holding) => {
+                    const pl = holding.change24h;
+                    const plAmount = (holding.total * holding.change24h) / 100;
+                    
+                    return (
+                      <tr
+                        key={holding.id}
+                        data-testid={`holding-row-${holding.id}`}
+                        className="border-b border-border/10 last:border-0 hover:bg-white/5 transition-colors"
+                      >
+                        <td className="py-4">
+                          <div className="flex items-center gap-3">
+                            <img src={holding.image} alt={holding.name} className="w-10 h-10 rounded-full" />
+                            <div>
+                              <p className="font-semibold text-foreground">{holding.name}</p>
+                              <p className="text-xs text-muted-foreground">{holding.symbol.toUpperCase()}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 text-right">
+                          <p className="font-mono text-foreground">{holding.amount.toFixed(6)}</p>
+                          <p className="text-xs text-muted-foreground">{holding.symbol.toUpperCase()}</p>
+                        </td>
+                        <td className="py-4 text-right">
+                          <span className={`flex items-center justify-end gap-1 font-semibold ${
+                            holding.change24h >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'
+                          }`}>
+                            {holding.change24h >= 0 ? '▲' : '▼'}
+                            {Math.abs(holding.change24h).toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="py-4 text-right">
+                          <p className="font-mono text-foreground">
+                            ${holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </td>
+                        <td className="py-4 text-right">
+                          <p className="font-mono font-bold text-foreground">
+                            ${holding.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </td>
+                        <td className="py-4 text-right">
+                          <div>
+                            <p className={`font-mono font-semibold ${
+                              pl >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'
+                            }`}>
+                              {pl >= 0 ? '+' : ''}${Math.abs(plAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className={`text-xs ${
+                              pl >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'
+                            }`}>
+                              {pl >= 0 ? '▲' : '▼'} {Math.abs(pl).toFixed(2)}%
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-4 text-right">
+                          <Link
+                            to={`/trade/${holding.id}`}
+                            className="text-sm text-primary hover:underline"
+                            data-testid={`trade-link-${holding.id}`}
+                          >
+                            Trade
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </motion.div>
