@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-01-07T13:10:36.354883",
+  "total_tests": 13,
+  "passed_tests": 10,
+  "success_rate": 76.92307692307693,
+  "test_details": [
+    {
+      "test": "User Signup",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "User Login",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Current User",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Portfolio",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Portfolio Structure",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Default USD Balance",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Transactions",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Transactions List",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Crypto Markets",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Bitcoin Details",
+      "success": false,
+      "details": "Expected 200, got 404 - Coin not found"
+    },
+    {
+      "test": "Sell Crypto (Insufficient Balance)",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Create Stripe Checkout",
+      "success": false,
+      "details": "Expected 200, got 400 - Could not fetch crypto price"
+    },
+    {
+      "test": "Checkout Status",
+      "success": false,
+      "details": "No session_id available"
+    }
+  ]
+}
