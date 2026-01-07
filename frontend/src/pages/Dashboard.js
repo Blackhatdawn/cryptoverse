@@ -2,47 +2,99 @@ import React, { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { api } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Wallet, ArrowUpRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const [portfolio, setPortfolio] = useState(null);
   const [markets, setMarkets] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [detailedHoldings, setDetailedHoldings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (showToast = false) => {
     try {
-      const [portfolioRes, marketsRes, transactionsRes] = await Promise.all([
+      setRefreshing(true);
+      const [portfolioRes, marketsRes] = await Promise.all([
         api.get('/portfolio'),
-        api.get('/crypto/markets'),
-        api.get('/transactions')
+        api.get('/crypto/markets')
       ]);
+      
       setPortfolio(portfolioRes.data);
-      setMarkets(marketsRes.data.slice(0, 6));
-      setTransactions(transactionsRes.data.slice(0, 5));
+      setMarkets(marketsRes.data);
+      
+      // Build detailed holdings with current prices
+      const holdingsData = [];
+      if (portfolioRes.data.holdings && Object.keys(portfolioRes.data.holdings).length > 0) {
+        for (const [coinId, amount] of Object.entries(portfolioRes.data.holdings)) {
+          const coinData = marketsRes.data.find(m => m.id === coinId);
+          if (coinData) {
+            holdingsData.push({
+              id: coinId,
+              name: coinData.name,
+              symbol: coinData.symbol,
+              amount: amount,
+              currentPrice: coinData.current_price,
+              change24h: coinData.price_change_percentage_24h || 0,
+              total: amount * coinData.current_price,
+              image: coinData.image
+            });
+          }
+        }
+      }
+      setDetailedHoldings(holdingsData);
+      
+      if (showToast) {
+        toast.success('Portfolio refreshed');
+      }
     } catch (error) {
-      toast.error('Failed to load dashboard data');
+      toast.error('Failed to load portfolio data');
       console.error(error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const mockChartData = [
-    { time: '00:00', value: 9800 },
-    { time: '04:00', value: 10200 },
-    { time: '08:00', value: 9900 },
-    { time: '12:00', value: 10500 },
-    { time: '16:00', value: 10300 },
-    { time: '20:00', value: portfolio?.total_value || 10000 },
-  ];
+  const handleRefresh = () => {
+    fetchData(true);
+  };
+
+  // Mock historical data for line chart
+  const generateHistoricalData = () => {
+    const data = [];
+    const baseValue = portfolio?.total_value || 10000;
+    const points = 20;
+    
+    for (let i = 0; i < points; i++) {
+      const variance = (Math.random() - 0.5) * 2000;
+      data.push({
+        time: i,
+        value: Math.max(baseValue + variance - (points - i) * 100, 0)
+      });
+    }
+    return data;
+  };
+
+  const chartData = portfolio ? generateHistoricalData() : [];
+  
+  // Calculate portfolio change
+  const portfolioChange = 0; // Would be calculated from historical data
+  const isPositive = portfolioChange >= 0;
+
+  // Pie chart data
+  const pieData = detailedHoldings.map(h => ({
+    name: h.symbol.toUpperCase(),
+    value: h.total
+  }));
+
+  const COLORS = ['#F7931A', '#627EEA', '#00D395', '#8247E5', '#FF6B6B'];
 
   if (loading) {
     return (
@@ -57,194 +109,249 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="font-heading text-3xl sm:text-4xl font-bold text-foreground mb-2">
-            Portfolio Overview
-          </h1>
-          <p className="text-muted-foreground">Track your crypto investments in real-time</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-colors p-6"
-            data-testid="total-balance-card"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <Wallet className="text-primary" size={24} />
-              </div>
-              <TrendingUp className="text-[#00FF94]" size={20} />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Total Balance</p>
-              <p className="font-mono text-3xl font-bold text-foreground">
-                ${portfolio?.total_value?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-colors p-6"
-            data-testid="usd-balance-card"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-secondary/10">
-                <span className="text-secondary text-xl font-bold">$</span>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">USD Balance</p>
-              <p className="font-mono text-3xl font-bold text-foreground">
-                ${portfolio?.usd_balance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-colors p-6"
-            data-testid="crypto-holdings-card"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-xl bg-primary/10">
-                <TrendingUp className="text-primary" size={24} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Crypto Holdings</p>
-              <p className="font-mono text-3xl font-bold text-foreground">
-                {Object.keys(portfolio?.holdings || {}).length}
-              </p>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Portfolio Chart */}
+        {/* Total Worth Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
-          className="rounded-2xl bg-card border border-border/50 p-6"
-          data-testid="portfolio-chart"
+          className="space-y-4"
+          data-testid="total-worth-section"
         >
-          <h2 className="font-heading text-xl font-bold text-foreground mb-6">Portfolio Value</h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={mockChartData}>
-              <defs>
-                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(190, 100%, 50%)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(190, 100%, 50%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="time" stroke="hsl(215, 20%, 65%)" style={{ fontSize: '12px' }} />
-              <YAxis stroke="hsl(215, 20%, 65%)" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(240, 25%, 10%)',
-                  border: '1px solid hsl(240, 20%, 18%)',
-                  borderRadius: '8px',
-                  color: 'hsl(210, 40%, 98%)'
-                }}
-              />
-              <Area type="monotone" dataKey="value" stroke="hsl(190, 100%, 50%)" fillOpacity={1} fill="url(#colorValue)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Total Worth</p>
+              <h1 className="font-mono text-5xl sm:text-6xl font-bold text-foreground tracking-tight">
+                ${portfolio?.total_value?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h1>
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              data-testid="refresh-button"
+              className="p-3 rounded-xl bg-card hover:bg-white/5 transition-colors border border-border/50"
+            >
+              <RefreshCw className={`text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} size={20} />
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <span className={`font-mono text-lg font-semibold ${isPositive ? 'text-[#00FF94]' : 'text-[#FF3333]'}`}>
+              ${portfolio?.total_value?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className={`flex items-center gap-1 text-sm font-semibold ${isPositive ? 'text-[#00FF94]' : 'text-[#FF3333]'}`}>
+              {isPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              {isPositive ? '+' : ''}{portfolioChange.toFixed(2)}%
+            </span>
+            <span className="text-sm text-muted-foreground">24H</span>
+          </div>
         </motion.div>
 
-        {/* Markets & Recent Transactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Markets */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-            className="rounded-2xl bg-card border border-border/50 p-6"
-            data-testid="top-markets-section"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-heading text-xl font-bold text-foreground">Top Markets</h2>
-              <Link to="/markets" className="text-sm text-primary hover:underline" data-testid="view-all-markets-link">
-                View All
+        {/* Assets Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="rounded-2xl bg-card border border-border/50 p-6"
+          data-testid="assets-section"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-heading text-xl font-bold text-foreground">
+              Assets ${portfolio?.total_value?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </h2>
+            {detailedHoldings.length > 3 && (
+              <Link to="/wallet" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                See More Assets
               </Link>
-            </div>
-            <div className="space-y-4">
-              {markets.map((coin) => (
-                <Link
-                  key={coin.id}
-                  to={`/trade/${coin.id}`}
-                  data-testid={`market-coin-${coin.id}`}
-                  className="flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <img src={coin.image} alt={coin.name} className="w-8 h-8 rounded-full" />
-                    <div>
-                      <p className="font-semibold text-foreground">{coin.symbol.toUpperCase()}</p>
-                      <p className="text-xs text-muted-foreground">{coin.name}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-mono text-sm font-semibold text-foreground">
-                      ${coin.current_price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                    <p className={`text-xs font-medium ${coin.price_change_percentage_24h >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'}`}>
-                      {coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h?.toFixed(2)}%
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </motion.div>
+            )}
+          </div>
 
-          {/* Recent Transactions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.5 }}
-            className="rounded-2xl bg-card border border-border/50 p-6"
-            data-testid="recent-transactions-section"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-heading text-xl font-bold text-foreground">Recent Activity</h2>
-              <Link to="/wallet" className="text-sm text-primary hover:underline" data-testid="view-all-transactions-link">
-                View All
+          {detailedHoldings.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">No crypto holdings yet</p>
+              <Link to="/markets" className="text-primary hover:underline">
+                Start Trading
               </Link>
             </div>
-            <div className="space-y-4">
-              {transactions.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No transactions yet</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b border-border/30">
+                    <th className="pb-4 font-medium">Name</th>
+                    <th className="pb-4 font-medium text-right">Amount</th>
+                    <th className="pb-4 font-medium text-right">24h Change</th>
+                    <th className="pb-4 font-medium text-right">Price</th>
+                    <th className="pb-4 font-medium text-right">Total</th>
+                    <th className="pb-4 font-medium text-right">P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailedHoldings.slice(0, 5).map((holding, index) => {
+                    const pl = holding.change24h;
+                    const plAmount = (holding.total * holding.change24h) / 100;
+                    
+                    return (
+                      <tr
+                        key={holding.id}
+                        data-testid={`asset-row-${holding.id}`}
+                        className="border-b border-border/10 last:border-0 hover:bg-white/5 transition-colors"
+                      >
+                        <td className="py-4">
+                          <Link to={`/trade/${holding.id}`} className="flex items-center gap-3">
+                            <img src={holding.image} alt={holding.name} className="w-8 h-8 rounded-full" />
+                            <div>
+                              <p className="font-semibold text-foreground">{holding.name}</p>
+                              <p className="text-xs text-muted-foreground">{holding.symbol.toUpperCase()}</p>
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="py-4 text-right">
+                          <p className="font-mono text-sm text-foreground">{holding.amount.toFixed(4)}</p>
+                        </td>
+                        <td className="py-4 text-right">
+                          <span className={`flex items-center justify-end gap-1 font-semibold text-sm ${
+                            holding.change24h >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'
+                          }`}>
+                            {holding.change24h >= 0 ? '▲' : '▼'}
+                            {Math.abs(holding.change24h).toFixed(2)}%
+                          </span>
+                        </td>
+                        <td className="py-4 text-right">
+                          <p className="font-mono text-sm text-foreground">
+                            ${holding.currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </td>
+                        <td className="py-4 text-right">
+                          <p className="font-mono font-semibold text-foreground">
+                            ${holding.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </td>
+                        <td className="py-4 text-right">
+                          <div>
+                            <p className={`font-mono font-semibold text-sm ${
+                              pl >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'
+                            }`}>
+                              {pl >= 0 ? '+' : ''}${Math.abs(plAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                            <p className={`text-xs ${
+                              pl >= 0 ? 'text-[#00FF94]' : 'text-[#FF3333]'
+                            }`}>
+                              {pl >= 0 ? '▲' : '▼'} {Math.abs(pl).toFixed(2)}%
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Charts Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-2xl bg-card border border-border/50 p-6"
+          data-testid="charts-section"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-heading text-xl font-bold text-foreground">Charts</h2>
+            <button className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              See More Charts
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Line Chart */}
+            <div className="lg:col-span-2">
+              <div className="mb-4">
+                <p className="text-xs text-muted-foreground mb-1">High: ${Math.max(...chartData.map(d => d.value)).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={chartData}>
+                  <defs>
+                    <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(260, 100%, 65%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(260, 100%, 65%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis hide />
+                  <YAxis hide domain={['dataMin', 'dataMax']} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(240, 25%, 10%)',
+                      border: '1px solid hsl(240, 20%, 18%)',
+                      borderRadius: '8px',
+                      color: 'hsl(210, 40%, 98%)'
+                    }}
+                    formatter={(value) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(260, 100%, 65%)"
+                    strokeWidth={2}
+                    fill="url(#portfolioGradient)"
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Pie Chart */}
+            <div className="flex flex-col items-center justify-center">
+              {detailedHoldings.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={90}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(240, 25%, 10%)',
+                        border: '1px solid hsl(240, 20%, 18%)',
+                        borderRadius: '8px',
+                        color: 'hsl(210, 40%, 98%)'
+                      }}
+                      formatter={(value) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               ) : (
-                transactions.map((tx) => (
-                  <div key={tx.id} data-testid={`transaction-${tx.id}`} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${tx.transaction_type === 'buy' ? 'bg-[#00FF94]/10 text-[#00FF94]' : 'bg-[#FF3333]/10 text-[#FF3333]'}`}>
-                        {tx.transaction_type === 'buy' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-foreground text-sm">
-                          {tx.transaction_type === 'buy' ? 'Bought' : 'Sold'} {tx.coin_symbol.toUpperCase()}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{tx.amount} coins</p>
-                      </div>
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground text-sm">No assets to display</p>
+                </div>
+              )}
+              {detailedHoldings.length > 0 && (
+                <div className="mt-4 text-center">
+                  {detailedHoldings.slice(0, 3).map((holding, index) => (
+                    <div key={holding.id} className="flex items-center gap-2 justify-center mb-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {holding.symbol.toUpperCase()}: {((holding.total / portfolio.total_value) * 100).toFixed(1)}%
+                      </span>
                     </div>
-                    <p className="font-mono text-sm font-semibold text-foreground">
-                      ${tx.total_usd.toFixed(2)}
-                    </p>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </div>
     </DashboardLayout>
   );
