@@ -3,7 +3,8 @@ import DashboardLayout from '../components/DashboardLayout';
 import { api } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Wallet = () => {
   const [portfolio, setPortfolio] = useState(null);
