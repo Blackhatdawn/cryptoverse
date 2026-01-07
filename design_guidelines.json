@@ -1,0 +1,153 @@
+{
+  "identity": "E1",
+  "project_name": "CryptoNexus",
+  "design_philosophy": {
+    "core_concept": "The Anti-AI Designer",
+    "vibe": "Deep Cosmos & Electric Precision",
+    "principles": [
+      "Fusion over Imitation: Mix Swiss Typography with Cyberpunk Aesthetics",
+      "Emotion First: Trust meets Adrenaline",
+      "Content is King: Data is the art",
+      "Negative Space: Luxury requires emptiness"
+    ]
+  },
+  "typography": {
+    "font_families": {
+      "heading": "Unbounded, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "imports": [
+      "https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Unbounded:wght@200..900&family=JetBrains+Mono:wght@100..800&display=swap"
+    ],
+    "usage_rules": {
+      "headings": "Use 'Unbounded' for all H1-H3. Tight tracking (-0.02em). Font weights: 300 (Light) or 700 (Bold).",
+      "body": "Use 'Manrope' for UI text. High legibility.",
+      "numbers": "Use 'JetBrains Mono' for all prices, wallet addresses, and transaction hashes."
+    }
+  },
+  "colors": {
+    "palette_name": "Midnight Ledger",
+    "mode": "dark",
+    "tailwind_config": {
+      "background": "240 30% 6%",
+      "foreground": "210 40% 98%",
+      "card": "240 25% 10%",
+      "card_foreground": "210 40% 98%",
+      "popover": "240 30% 8%",
+      "popover_foreground": "210 40% 98%",
+      "primary": "190 100% 50%",
+      "primary_foreground": "240 30% 6%",
+      "secondary": "260 100% 65%",
+      "secondary_foreground": "210 40% 98%",
+      "muted": "240 20% 15%",
+      "muted_foreground": "215 20% 65%",
+      "accent": "190 100% 50%",
+      "accent_foreground": "240 30% 6%",
+      "destructive": "0 84% 60%",
+      "destructive_foreground": "210 40% 98%",
+      "border": "240 20% 18%",
+      "input": "240 20% 18%",
+      "ring": "190 100% 50%"
+    },
+    "special_colors": {
+      "success": "#00FF94",
+      "warning": "#FFB000",
+      "error": "#FF3333",
+      "bitcoin": "#F7931A",
+      "ethereum": "#627EEA"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "default": "bg-background/60 backdrop-blur-xl border border-white/10",
+      "heavy": "bg-background/80 backdrop-blur-2xl border border-white/5"
+    },
+    "gradients": {
+      "hero_glow": "bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background",
+      "card_hover": "hover:bg-white/5 transition-colors duration-300"
+    },
+    "borders": {
+      "neon": "border border-primary/50 shadow-[0_0_10px_rgba(0,240,255,0.3)]"
+    }
+  },
+  "layout_strategies": {
+    "marketing": {
+      "grid": "grid-cols-1 md:grid-cols-12 gap-8",
+      "spacing": "Generous padding (py-24, py-32). Asymmetrical layouts."
+    },
+    "dashboard": {
+      "grid": "grid-cols-1 md:grid-cols-4 gap-6",
+      "spacing": "Compact but breathable (p-6). Bento grid style."
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-bold tracking-wide shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all hover:scale-105",
+      "secondary": "rounded-full border border-white/20 bg-transparent hover:bg-white/10 text-white transition-all"
+    },
+    "cards": {
+      "dashboard": "rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-colors p-6",
+      "marketing": "rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md p-8"
+    },
+    "inputs": {
+      "default": "bg-white/5 border-white/10 focus:border-primary focus:ring-primary/20 rounded-xl h-12"
+    }
+  },
+  "image_urls": {
+    "hero": [
+      "https://images.pexels.com/photos/8185627/pexels-photo-8185627.jpeg",
+      "https://images.pexels.com/photos/983200/pexels-photo-983200.jpeg"
+    ],
+    "dashboard_placeholders": [
+      "https://images.pexels.com/photos/7567537/pexels-photo-7567537.jpeg",
+      "https://images.pexels.com/photos/7567520/pexels-photo-7567520.jpeg"
+    ],
+    "coins": {
+      "bitcoin": "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
+      "ethereum": "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+      "solana": "https://cryptologos.cc/logos/solana-sol-logo.png"
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Stroke width 1.5px for elegance. 2px for active states."
+  },
+  "motion": {
+    "libraries": ["framer-motion"],
+    "rules": [
+      "No 'transition: all'",
+      "Use spring physics for interactions",
+      "Stagger children animations"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add the Google Fonts import to index.css immediately.",
+    "2. UPDATE TAILWIND: Replace the colors in tailwind.config.js with the HSL values provided in 'colors.tailwind_config'.",
+    "3. CREATE LAYOUTS: Build a 'DashboardLayout' (Sidebar + Topbar) and a 'MarketingLayout' (Navbar + Footer).",
+    "4. USE SHADCN: Customize shadcn components to match the 'Deep Cosmos' theme (remove rounded-md, use rounded-xl or full).",
+    "5. DATA-TESTID: Add data-testid to all interactive elements.",
+    "6. MOCK DATA: Create a robust mock data file for crypto prices and portfolio history since backend might not be ready.",
+    "7. CHARTS: Use Recharts with the custom theme colors (Primary for main line, Secondary for comparison)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts"
+  ]
+}
